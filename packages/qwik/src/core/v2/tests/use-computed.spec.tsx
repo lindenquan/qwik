@@ -1,5 +1,6 @@
 import {
   Fragment as Signal,
+  Fragment as Component,
   component$,
   qrl,
   useComputed$,
@@ -13,6 +14,8 @@ import { trigger, domRender, ssrRenderToDom } from '@builder.io/qwik/testing';
 
 const debug = false; //true;
 Error.stackTraceLimit = 100;
+
+const __CFG__ = { noImg: 'img-url' };
 
 describe.each([
   { render: ssrRenderToDom }, //
@@ -313,6 +316,74 @@ describe.each([
         </>
       );
       expect((global as any).useComputedCount).toBe(1);
+    });
+
+    it('#4368 - should rerun computed value with static const', async () => {
+      const Issue4868Card = component$((props: { src: string }) => {
+        const { src } = props;
+
+        const src$ = useComputed$(() => {
+          return props.src + '&useComputed$';
+        });
+
+        return (
+          <div>
+            <p>Card props.src: {src}</p>
+            <p>Card useComputed$: {src$.value}</p>
+          </div>
+        );
+      });
+
+      const Issue4868 = component$(() => {
+        const noImg = __CFG__.noImg;
+        const selected = useSignal<string>('');
+        return (
+          <div>
+            <Issue4868Card src={selected.value || noImg} />
+            <button onClick$={() => (selected.value = 'foo')}></button>
+          </div>
+        );
+      });
+
+      const { vNode, container } = await render(<Issue4868 />, { debug });
+
+      expect(vNode).toMatchVDOM(
+        <Component>
+          <div>
+            <Component>
+              <div>
+                <p>
+                  Card props.src: <Signal>img-url</Signal>
+                </p>
+                <p>
+                  Card useComputed$: <Signal>img-url&useComputed$</Signal>
+                </p>
+              </div>
+            </Component>
+            <button></button>
+          </div>
+        </Component>
+      );
+
+      await trigger(container.element, 'button', 'click');
+
+      expect(vNode).toMatchVDOM(
+        <Component>
+          <div>
+            <Component>
+              <div>
+                <p>
+                  Card props.src: <Signal>foo</Signal>
+                </p>
+                <p>
+                  Card useComputed$: <Signal>foo&useComputed$</Signal>
+                </p>
+              </div>
+            </Component>
+            <button></button>
+          </div>
+        </Component>
+      );
     });
   });
 });
