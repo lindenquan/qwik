@@ -222,43 +222,51 @@ describe('resolveId', () => {
   test('qrls', async () => {
     const plugin = await mockPlugin();
     expect(plugin.resolveId(null!, 'foo', undefined)).toBeFalsy();
-    expect(
+    const ctx = { resolve: async () => ({ id: 'Yey' }) } as any;
+    await expect(
       plugin.resolveId(
-        null!,
+        ctx,
         '/root/src/routes/layout.tsx_layout_component_usetask_1_7xk04rim0vu.js',
         undefined
       )
-    ).toHaveProperty('id', '/root/src/routes/layout.tsx_layout_component_usetask_1_7xk04rim0vu.js');
+    ).resolves.toHaveProperty(
+      'id',
+      '/root/src/routes/layout.tsx_layout_component_usetask_1_7xk04rim0vu.js'
+    );
     expect(
-      plugin.resolveId(null!, '/root/src/routes/layout.tsx_s_7xk04rim0vu.js', undefined)
+      await plugin.resolveId(ctx, '/root/src/routes/layout.tsx_s_7xk04rim0vu.js', undefined)
     ).toHaveProperty('id', '/root/src/routes/layout.tsx_s_7xk04rim0vu.js');
     expect(plugin.resolveId(null!, './foo', '/root/src/routes/layout.tsx')).toBeFalsy();
     expect(
-      plugin.resolveId(
-        null!,
+      await plugin.resolveId(
+        ctx,
         './layout.tsx_layout_component_usetask_1_7xk04rim0vu.js',
         '/root/src/routes/layout.tsx'
       )
     ).toHaveProperty('id', '/root/src/routes/layout.tsx_layout_component_usetask_1_7xk04rim0vu.js');
     // this uses the already populated id we created above
     expect(
-      plugin.resolveId(
+      await plugin.resolveId(
         {
           resolve: (id: string, importer: string) => {
             expect(id).toBe('/root/src/routes/foo');
-            expect(importer).toBe('/root/src/routes/layout.tsx');
-            return 'hi';
+            expect(importer).toBe('Yey');
+            return { id: 'hi' };
           },
         } as any,
         './foo',
         '/root/src/routes/layout.tsx_layout_component_usetask_1_7xk04rim0vu.js'
       )
-    ).toBe('hi');
+    ).toEqual({ id: 'hi' });
   });
   test('win32', async () => {
     const plugin = await mockPlugin('win32');
     expect(
-      plugin.resolveId(null!, 'C:\\src\\routes\\layout.tsx_s_7xk04rim0vu.js', undefined)
+      await plugin.resolveId(
+        { resolve: async () => 'Yey' } as any,
+        'C:\\src\\routes\\layout.tsx_s_7xk04rim0vu.js',
+        undefined
+      )
     ).toHaveProperty('id', 'C:/src/routes/layout.tsx_s_7xk04rim0vu.js');
   });
   test('libs', async () => {

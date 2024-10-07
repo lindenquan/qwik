@@ -517,14 +517,20 @@ export function createPlugin(optimizerOptions: OptimizerOptions = {}) {
       const match = /^(.*\.[mc]?[jt]sx?)_([^/]+)_([^_]+)\.js($|\?)/.exec(pathId);
       if (match) {
         const [, parentId, name, hash] = match;
-        debug(`resolveId(${count})`, `resolved to QRL ${name}_${hash} of ${parentId}`);
-        // Save for quick lookup
-        knownQrls.set(hash, parentId);
-        result = {
-          id: pathId + parsedId.query,
-          // QRL segments can't have side effects. Probably never useful, but it's here for consistency
-          moduleSideEffects: false,
-        };
+        return ctx.resolve(parentId, importerId, { skipSelf: true }).then((resolved) => {
+          if (resolved) {
+            debug(`resolveId(${count})`, `resolved to QRL ${name}_${hash} of ${parentId}`);
+            // Save for quick lookup
+            knownQrls.set(hash, resolved.id);
+            return {
+              id: pathId + parsedId.query,
+              // QRL segments can't have side effects. Probably never useful, but it's here for consistency
+              moduleSideEffects: false,
+            };
+          } else {
+            debug(`resolveId(${count})`, `${parentId} does not exist`);
+          }
+        });
       } else if (importerId) {
         /**
          * When we get here it's neither a virtual module nor a QRL segment. However, Rollup can ask
@@ -861,7 +867,7 @@ export const manifest = ${JSON.stringify(manifest)};\n`;
         for (const outputs of [clientTransformedOutputs, serverTransformedOutputs]) {
           for (const [key, [_, parentId]] of outputs) {
             if (parentId === id) {
-              debug('handleHotUpdate()', `invalidate segment ${key}`);
+              debug('handleHotUpdate()', `invalidate ${id} segment ${key}`);
               outputs.delete(key);
               const mod = ctx.server.moduleGraph.getModuleById(key);
               if (mod) {
